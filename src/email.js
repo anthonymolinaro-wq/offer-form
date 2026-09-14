@@ -7,27 +7,15 @@
 
 import { buildAAPages } from '../public/aa-fields.js';
 
-const NAVY = '#0c1a29';
-const GREEN = '#00aa56';
-// Self-hosted, not hotlinked from obrienrealestate.com.au: a different sending
-// domain pulling a brand's logo live from that brand's own site is a classic
-// phishing heuristic, and was very likely why the first test email landed in
-// Junk despite correct SPF/DKIM/DMARC.
-const LOGO_URL = 'https://offers.anthonymolinaro.com.au/obre-logo.png';
-
-/** Navy header band + white card body, wrapped around whatever content is passed in. */
-function brandCard(innerHtml, { maxWidth = 620 } = {}) {
-  return `<div style="background:#f6f7f9;padding:28px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-  <div style="max-width:${maxWidth}px;margin:0 auto;">
-    <div style="background:${NAVY};padding:16px 28px;border-radius:12px 12px 0 0;">
-      <img src="${LOGO_URL}" alt="O'Brien Real Estate" height="22" style="display:block;height:22px;width:auto;">
-    </div>
-    <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
-      ${innerHtml}
-    </div>
-  </div>
-</div>`;
-}
+// OBrien brand palette (2026 rebrand). FOREST is the only colour used for
+// text/links -- it's the one that reads cleanly on both white and Linen (see
+// the contrast check in the project notes). MOSS/SKY are decorative only
+// (borders, tints) and never carry text, since neither passes AA contrast
+// for body-sized text on a white or Linen background.
+const FOREST = '#032d23';
+const LINEN = '#f1eee9';
+const MOSS = '#8c9362';
+const FONT_STACK = "'Saans',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 const currency = (n) =>
   typeof n === 'number' && Number.isFinite(n)
@@ -73,120 +61,15 @@ export function subjectLine(o, listing) {
   ].join(' — ');
 }
 
-/**
- * One AA-style field: a small muted label above a bold, isolated value line.
- * Kept as its own block (not merged into a sentence) so a tap-and-hold on
- * mobile selects exactly the value as a fallback when the link below isn't used.
- */
-function field(label, value) {
-  return `<div style="padding:10px 0;border-bottom:1px solid #f1f1f1;">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:600;">${esc(label)}</div>
-    <div style="font-size:15.5px;margin-top:3px;color:${NAVY};font-weight:600;">${esc(value)}</div>
-  </div>`;
-}
-
-/**
- * The Anywhere Auctions screens, in their own on-screen order, sourced from
- * the same field builder the copy-view page uses -- only fields with a real
- * value appear, nothing is shown as a placeholder.
- */
-function aaSheet(o) {
-  return buildAAPages(o)
-    .map(
-      (page) => `<div style="margin-top:22px;">
-        <div style="background:${NAVY};color:#fff;padding:9px 16px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;">
-          Anywhere Auctions — ${esc(page.title)}
-        </div>
-        <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:2px 16px;">
-          ${page.fields.map((f) => field(f.label, f.value)).join('')}
-        </div>
-      </div>`,
-    )
-    .join('');
-}
-
-function actionItems(o) {
-  const items = [];
-  if (o.conveyancerRecommend) items.push('Buyer requested a conveyancer recommendation, sent automatically.');
-  if (o.subjectToFinance && o.financeRecommend) items.push('Buyer requested a finance/broker recommendation, sent automatically.');
-  if (o.subjectToBuildingPest && o.bpRecommend) items.push('Buyer requested a building & pest inspector recommendation, sent automatically.');
-  if (!items.length) return '';
-  return `<div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:22px;">
-    ${items.map(esc).join('<br>')}
-  </div>`;
-}
-
-/* ------------------------------------------------------------------ *
- * Trusted provider recommendations -- sent automatically to the buyer
- * whenever they tick a "please send me recommendations" box.
- * ------------------------------------------------------------------ */
-
-const CONVEYANCERS = [
-  {
-    name: 'Victorian Statewide Conveyancing',
-    phone: '03 8790 5488',
-    email: 'info@victorianstatewide.com.au',
-    website: 'https://victorianstatewide.com.au/',
-    detail:
-      "$1,600, or $1,700 if there's an owners corporation, with no hidden costs, no upfront fees, and no contract review fees.",
-  },
-  {
-    name: 'First Class Legal',
-    phone: '1300 956 321',
-    email: 'info@firstclasslegal.com.au',
-    website: 'https://www.firstclasslegal.com.au/',
-    detail:
-      '$1,500 plus GST and disbursements, taken out at settlement. The $330 standard contract review fee is deducted from the $1,500 if you go ahead with the property.',
-  },
-  {
-    name: 'Zettle Conveyancing',
-    website: 'https://www.zettle.com.au/contact',
-    detail: '$1,500 plus disbursements for buyers, with unlimited contract reviews.',
-  },
-];
-
-const FINANCE_BROKERS = [
-  {
-    name: 'Anthony Mathews, Loan Market',
-    phone: '0429 963 316',
-    email: 'anthony.mathews@loanmarket.com.au',
-  },
-  {
-    name: 'Rhys Chapman, Blue Rock',
-    phone: '0412 983 671',
-    email: 'rhys.chapman@thebluerock.com.au',
-    website: 'https://www.bluerock.com.au/team/rhys-chapman/',
-  },
-  {
-    name: 'Blank Finance',
-    phone: '0499 888 666',
-    website: 'https://blank.financial/contact/',
-  },
-];
-
-const BUILDING_PEST_INSPECTORS = [
-  {
-    name: "Paul O'Toole, Home Buyers Protection Service",
-    phone: '0411 325 949 or 9563 7732',
-    email: 'paul@hbps.com.au',
-    website: 'https://www.hbps.com.au/',
-    detail: '$495 for an email report, $695 for a written report.',
-  },
-  {
-    name: 'Altez Building Inspections',
-    phone: '0499 899 890',
-    email: 'admin@altezbuildinginspections.com.au',
-    website: 'https://www.altezbuildinginspections.com.au/',
-    detail: 'Contact them to confirm current fees.',
-  },
-  {
-    name: 'Authority Building Inspections',
-    phone: '1800 852 585',
-    email: 'hello@authoritybuildinginspections.com.au',
-    website: 'https://authoritybuildinginspections.com.au/contact-us/',
-    detail: 'Single storey $495 plus GST, double storey $550 plus GST.',
-  },
-];
+// One category = one email. topic phrases the sentence naturally
+// ("a conveyancer" / "a finance broker" / "a building & pest inspector").
+// Provider lists themselves come from the referrals sheet (src/referrals.js),
+// not from here.
+const RECOMMENDATION_CATEGORIES = {
+  conveyancer: { subject: 'Conveyancing recommendations', topic: 'a conveyancer', label: 'Conveyancer' },
+  finance: { subject: 'Finance recommendations', topic: 'a finance broker', label: 'Finance broker' },
+  buildingPest: { subject: 'Building & pest recommendations', topic: 'a building & pest inspector', label: 'Building & pest inspector' },
+};
 
 const RECOMMENDATION_INTRO =
   "These aren't just names off a list. They're people we've worked with many times, would happily " +
@@ -200,26 +83,14 @@ const RECOMMENDATION_DISCLOSURE =
 function providerRow(p) {
   const contactBits = [];
   if (p.phone) contactBits.push(esc(p.phone));
-  if (p.email) contactBits.push(`<a href="mailto:${esc(p.email)}" style="color:${GREEN};text-decoration:none;">${esc(p.email)}</a>`);
-  if (p.website) contactBits.push(`<a href="${esc(p.website)}" style="color:${GREEN};text-decoration:none;">${esc(p.website)}</a>`);
+  if (p.email) contactBits.push(`<a href="mailto:${esc(p.email)}" style="color:${FOREST};">${esc(p.email)}</a>`);
+  if (p.website) contactBits.push(`<a href="${esc(p.website)}" style="color:${FOREST};">${esc(p.website)}</a>`);
   return `<div style="margin-bottom:16px;">
-    <div style="font-weight:600;color:${NAVY};font-size:15px;">${esc(p.name)}</div>
+    <div style="font-weight:600;color:${FOREST};font-size:15px;">${esc(p.name)}</div>
     ${contactBits.length ? `<div style="font-size:13.5px;color:#6b7280;margin-top:2px;">${contactBits.join(' &nbsp;·&nbsp; ')}</div>` : ''}
     ${p.detail ? `<div style="font-size:13.5px;color:#6b7280;margin-top:2px;">${esc(p.detail)}</div>` : ''}
   </div>`;
 }
-
-// One category = one email. subject/topic phrase the sentence naturally
-// ("a conveyancer" / "a finance broker" / "a building & pest inspector").
-const RECOMMENDATION_CATEGORIES = {
-  conveyancer: { subject: 'Conveyancing recommendations', topic: 'a conveyancer', providers: CONVEYANCERS },
-  finance: { subject: 'Finance recommendations', topic: 'a finance broker', providers: FINANCE_BROKERS },
-  buildingPest: {
-    subject: 'Building & pest recommendations',
-    topic: 'a building & pest inspector',
-    providers: BUILDING_PEST_INSPECTORS,
-  },
-};
 
 function requestedCategoryKeys(o) {
   const keys = [];
@@ -229,9 +100,9 @@ function requestedCategoryKeys(o) {
   return keys;
 }
 
-function categoryEmailHtml(key, o, env) {
-  const { topic, providers } = RECOMMENDATION_CATEGORIES[key];
-  return `<div style="background:#f6f7f9;padding:28px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+function categoryEmailHtml(key, o, env, providers) {
+  const { topic } = RECOMMENDATION_CATEGORIES[key];
+  return `<div style="background:${LINEN};padding:28px 14px;font-family:${FONT_STACK};">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
     <p style="font-size:15px;color:#374151;line-height:1.65;margin:0 0 16px;">
       Hi ${esc(o.purchasers[0]?.firstName || 'there')},
@@ -252,8 +123,8 @@ function categoryEmailHtml(key, o, env) {
 </div>`;
 }
 
-function categoryEmailText(key, o) {
-  const { topic, providers } = RECOMMENDATION_CATEGORIES[key];
+function categoryEmailText(key, o, providers) {
+  const { topic } = RECOMMENDATION_CATEGORIES[key];
   const lines = [
     `Hi ${o.purchasers[0]?.firstName || 'there'},`,
     '',
@@ -273,73 +144,85 @@ function categoryEmailText(key, o) {
 
 /**
  * One entry per ticked "please send me recommendations" box -- a buyer who
- * ticks two boxes gets two separate emails, not one combined one.
+ * ticks two boxes gets two separate emails, not one combined one. A category
+ * with nobody in the sheet is skipped here (nothing to send) but still shows
+ * up in sentReferralsSummary() as "none configured", so the agent notices.
  */
-export function recommendationEmails(o, env) {
+export function recommendationEmails(o, env, referralsByType = {}) {
+  return requestedCategoryKeys(o)
+    .filter((key) => (referralsByType[key] || []).length)
+    .map((key) => {
+      const providers = referralsByType[key];
+      return {
+        subject: RECOMMENDATION_CATEGORIES[key].subject,
+        html: categoryEmailHtml(key, o, env, providers),
+        text: categoryEmailText(key, o, providers),
+      };
+    });
+}
+
+/**
+ * What actually went out to the buyer, by category -- used in the agent
+ * notification so Anthony can see at a glance which referrals were sent
+ * (or that a category was requested but nobody's configured for it yet).
+ */
+export function sentReferralsSummary(o, referralsByType = {}) {
   return requestedCategoryKeys(o).map((key) => ({
-    subject: RECOMMENDATION_CATEGORIES[key].subject,
-    html: categoryEmailHtml(key, o, env),
-    text: categoryEmailText(key, o),
+    label: RECOMMENDATION_CATEGORIES[key].label,
+    names: (referralsByType[key] || []).map((p) => p.name),
   }));
 }
 
+/**
+ * Plain-text-style notification to the agent: bold labels and hyperlinks
+ * only, no colours, boxes, logo, or custom fonts -- easy to scan and safe to
+ * copy out of, on any device or email client.
+ */
 export function offerHtml(o, listing, meta = {}) {
-  const warn = meta.agentboxError
-    ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:22px;">
-         <strong>Not logged in Agentbox.</strong> ${esc(meta.agentboxError)}. This email is the only record, so please add it to the CRM manually.
-       </div>`
-    : '';
+  const summary = meta.sentReferrals || [];
 
-  return brandCard(`
-    ${warn}
-    ${actionItems(o)}
-    <div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#9ca3af;font-weight:700;">Offer received</div>
-    <h1 style="margin:6px 0 2px;font-size:21px;line-height:1.3;color:${NAVY};">${esc(listing.address || 'Property')}</h1>
-    <div style="color:#6b7280;font-size:14px;">${esc([listing.type, listing.priceGuide].filter(Boolean).join(' · '))}</div>
+  const lines = [];
+  lines.push(`<p><b>Offer received — ${esc(listing.address || 'Property')}</b>`);
+  if (listing.type || listing.priceGuide) {
+    lines.push(`<br>${esc([listing.type, listing.priceGuide].filter(Boolean).join(' · '))}`);
+  }
+  lines.push('</p>');
 
-    <div style="margin:24px 0 4px;padding:18px 20px;background:#f9fafb;border-radius:10px;border-left:3px solid ${GREEN};">
-      <div style="font-size:12px;color:#6b7280;">Offer price</div>
-      <div style="font-size:30px;font-weight:700;color:${GREEN};letter-spacing:-.02em;">${currency(o.offerPrice)}</div>
-      <div style="font-size:13px;color:#6b7280;margin-top:4px;">
-        ${esc(settlementSummary(o))} settlement &nbsp;·&nbsp; ${esc(conditionsSummary(o))}
-      </div>
-    </div>
+  lines.push(`<p><b>Offer price:</b> ${esc(currency(o.offerPrice))}` +
+    `<br><b>Settlement:</b> ${esc(settlementSummary(o))}` +
+    `<br><b>Conditions:</b> ${esc(conditionsSummary(o))}</p>`);
 
-    ${
-      meta.viewUrl
-        ? `<a href="${esc(meta.viewUrl)}" style="display:block;text-align:center;margin:22px 0 0;padding:14px 20px;
-             background-color:${GREEN};text-decoration:none;border-radius:9px;">
-             <span style="color:#ffffff;font-size:15px;font-weight:700;">Open &amp; copy offer details &rarr;</span>
-           </a>
-           <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;text-align:center;">
-             Opens a page with a Copy button next to every field, in the same order as Anywhere Auctions.
-           </p>`
-        : ''
-    }
-    ${aaSheet(o)}
+  if (meta.viewUrl) {
+    lines.push(`<p><a href="${esc(meta.viewUrl)}"><b><u>Open &amp; copy offer details</u></b></a><br>` +
+      `Opens a page with a Copy button next to every field, in the same order as Anywhere Auctions.</p>`);
+  }
 
-    ${
-      o.specialConditions?.trim()
-        ? `<div style="margin-top:26px;">
-             <div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:8px;">
-               Additional notes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(not part of the Anywhere Auctions form)</span>
-             </div>
-             <div style="font-size:14px;color:${NAVY};">${esc(o.specialConditions).replace(/\n/g, '<br>')}</div>
-           </div>`
-        : ''
-    }
+  buildAAPages(o).forEach((page) => {
+    const rows = page.fields.map((f) => `<b>${esc(f.label)}:</b> ${esc(f.value)}`).join('<br>');
+    lines.push(`<p><u><b>Anywhere Auctions — ${esc(page.title)}</b></u><br>${rows}</p>`);
+  });
 
-    <p style="margin:26px 0 0;font-size:12px;color:#9ca3af;line-height:1.6;">
-      Submitted via the online offer form on ${esc(new Date(o.submittedAt).toLocaleString('en-AU'))}.
-      This is an offer summary, not a contract of sale. No agreement exists until contracts are signed
-      and exchanged by both parties.
-    </p>
-  `);
+  if (summary.length) {
+    const rows = summary
+      .map((s) => `${esc(s.label)}: ${s.names.length ? esc(s.names.join(', ')) : 'none configured yet — check the referrals sheet'}`)
+      .join('<br>');
+    lines.push(`<p><b>Recommendations sent to buyer:</b><br>${rows}</p>`);
+  }
+
+  if (o.specialConditions?.trim()) {
+    lines.push(`<p><b>Additional notes</b> (not part of the Anywhere Auctions form):<br>` +
+      `${esc(o.specialConditions).replace(/\n/g, '<br>')}</p>`);
+  }
+
+  lines.push(`<p>Submitted via the online offer form on ${esc(new Date(o.submittedAt).toLocaleString('en-AU'))}. ` +
+    `This is an offer summary, not a contract of sale. No agreement exists until contracts are signed and exchanged by both parties.</p>`);
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#111;">${lines.join('\n')}</div>`;
 }
 
 /** Deliberately plain -- no logo, no heading, just the message. */
 export function buyerConfirmationHtml(o, listing, env) {
-  return `<div style="background:#f6f7f9;padding:28px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  return `<div style="background:${LINEN};padding:28px 14px;font-family:${FONT_STACK};">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
     <p style="font-size:15px;color:#374151;line-height:1.65;margin:0 0 16px;">
       Hi ${esc(o.purchasers[0]?.firstName || 'there')},
@@ -367,14 +250,17 @@ export function buyerConfirmationHtml(o, listing, env) {
  * Plain-text mirror, sourced from the same field builder as the HTML version
  * and the copy-view page, for clients that strip HTML.
  */
-export function offerText(o, listing) {
+export function offerText(o, listing, meta = {}) {
   const lines = [`OFFER — ${listing.address}`, ''];
 
-  const actions = [];
-  if (o.conveyancerRecommend) actions.push('  Buyer requested a conveyancer recommendation, sent automatically.');
-  if (o.subjectToFinance && o.financeRecommend) actions.push('  Buyer requested a finance/broker recommendation, sent automatically.');
-  if (o.subjectToBuildingPest && o.bpRecommend) actions.push('  Buyer requested a building & pest inspector recommendation, sent automatically.');
-  if (actions.length) lines.push('NOTE', ...actions, '');
+  const summary = meta.sentReferrals || [];
+  if (summary.length) {
+    lines.push('RECOMMENDATIONS SENT TO BUYER');
+    summary.forEach((s) => {
+      lines.push(`  ${s.label}: ${s.names.length ? s.names.join(', ') : 'none configured yet — check the referrals sheet'}`);
+    });
+    lines.push('');
+  }
 
   lines.push(
     `Price:       ${currency(o.offerPrice)}`,

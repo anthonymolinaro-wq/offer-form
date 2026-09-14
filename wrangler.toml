@@ -2,8 +2,11 @@ name = "offer-form"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
 
-# Serves everything in public/ as static files, with the Worker handling /api/*
-assets = { directory = "public", binding = "ASSETS" }
+# Serves everything in public/ as static files, with the Worker handling /api/*.
+# html_handling = "none" turns off Cloudflare's default /index.html -> / redirect,
+# which otherwise strips the path on every property-address URL (the Worker's own
+# SPA fallback in src/index.js explicitly requests /index.html for those routes).
+assets = { directory = "public", binding = "ASSETS", html_handling = "none" }
 
 # Non-secret config. Secrets (API keys) live in .dev.vars locally and in
 # Cloudflare's encrypted store in production -- never in this file.
@@ -15,6 +18,14 @@ AGENT_NAME     = "Anthony Molinaro"
 AGENT_TITLE    = "Licensed Estate Agent/Auctioneer"
 AGENT_PHONE    = "0411 061 796"
 PUBLIC_ORIGIN  = "https://offers.anthonymolinaro.com.au"
+
+# Trusted-provider referrals sheet (conveyancers / finance brokers / building
+# & pest inspectors). This Worker reads it as a public CSV export, so the
+# sheet's Share settings must be "Anyone with the link" -> Viewer. The ID is
+# the long string in the sheet's URL: .../spreadsheets/d/THIS_PART/edit
+# GID is whichever tab holds the data -- 0 is the first/default tab.
+REFERRALS_SHEET_ID  = "1PMPVRhc5LE8vKRv2mhGm6h5LAgV0MPSjCrZp5e6UFCA"
+REFERRALS_SHEET_GID = "0"
 
 # Optional safety net: a 90-day copy of every raw submission, in case an email
 # bounces or an Agentbox write fails. Costs nothing, invisible, not a spreadsheet.

@@ -1,6 +1,7 @@
 import { agentbox } from './agentbox.js';
-import { subjectLine, offerHtml, offerText, buyerConfirmationHtml, recommendationEmails, sendEmail } from './email.js';
+import { subjectLine, offerHtml, offerText, buyerConfirmationHtml, recommendationEmails, sentReferralsSummary, sendEmail } from './email.js';
 import { encodeOfferForView } from '../public/aa-fields.js';
+import { fetchReferrals } from './referrals.js';
  
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -96,37 +97,6 @@ function validate(raw) {
 }
  
 /* ------------------------------------------------------------------ *
- * Agentbox write -- best effort, never blocks the notification
- * ------------------------------------------------------------------ */
- 
-function enquiryComment(offer, listing) {
-  return offerText(offer, listing);
-}
- 
-async function logToAgentbox(env, offer, listing) {
-  if (!agentbox.configured(env)) {
-    return { ok: false, error: 'Agentbox credentials not configured yet.' };
-  }
-  try {
-    const lead = offer.purchasers[0];
-    const { id: contactId } = await agentbox.findOrCreateContact(env, {
-      firstName: lead.firstName,
-      lastName: lead.lastName,
-      email: lead.email,
-      mobile: lead.mobile,
-    });
-    const { id: enquiryId } = await agentbox.logEnquiry(env, {
-      contactId,
-      listingId: offer.listingId,
-      comment: enquiryComment(offer, listing),
-    });
-    return { ok: true, contactId, enquiryId };
-  } catch (err) {
-    return { ok: false, error: err.message || String(err) };
-  }
-}
- 
-/* ------------------------------------------------------------------ *
  * Routes
  * ------------------------------------------------------------------ */
  
@@ -181,29 +151,38 @@ async function handleOffer(request, env, ctx) {
     }
   }
  
-  const crm = await logToAgentbox(env, offer, listing);
- 
-  // Raw copy first, so nothing is lost even if both emails fail.
+  // Raw copy first, so nothing is lost even if either email fails.
   if (env.OFFERS) {
     ctx.waitUntil(
-      env.OFFERS.put(`offer:${offer.submittedAt}:${offer.listingId}`, JSON.stringify({ offer, listing, crm }), {
+      env.OFFERS.put(`offer:${offer.submittedAt}:${offer.listingId}`, JSON.stringify({ offer, listing }), {
         expirationTtl: 60 * 60 * 24 * 90,
       }).catch(() => {}),
     );
   }
- 
+
   // The view link carries the offer inside the URL fragment (after #), which
   // browsers never send to a server -- so this needs no database, and none
   // of it ever touches Cloudflare's or anyone else's request logs.
   const viewUrl = `${env.PUBLIC_ORIGIN}/view.html#o=${encodeOfferForView(offer, listing)}`;
- 
+
+  // Only worth a round trip to the referrals sheet if the buyer actually
+  // ticked a "please send me recommendations" box.
+  const recommendationsRequested =
+    offer.conveyancerRecommend ||
+    (offer.subjectToFinance && offer.financeRecommend) ||
+    (offer.subjectToBuildingPest && offer.bpRecommend);
+  const referralsByType = recommendationsRequested
+    ? await fetchReferrals(env)
+    : { conveyancer: [], finance: [], buildingPest: [] };
+  const sentReferrals = sentReferralsSummary(offer, referralsByType);
+
   try {
     await sendEmail(env, {
       to: env.NOTIFY_EMAIL,
       replyTo: offer.purchasers[0].email,
       subject: subjectLine(offer, listing),
-      html: offerHtml(offer, listing, { agentboxError: crm.ok ? null : crm.error, viewUrl }),
-      text: offerText(offer, listing),
+      html: offerHtml(offer, listing, { viewUrl, sentReferrals }),
+      text: offerText(offer, listing, { sentReferrals }),
     });
   } catch (err) {
     return json({ errors: ['Could not submit your offer. Please call the agent directly.'], detail: err.message }, 502);
@@ -223,7 +202,7 @@ async function handleOffer(request, env, ctx) {
       subject: `Offer received — ${listing.address}`,
       html: buyerConfirmationHtml(offer, listing, env),
     },
-    ...recommendationEmails(offer, env).map((email) => ({
+    ...recommendationEmails(offer, env, referralsByType).map((email) => ({
       to: offer.purchasers[0].email,
       replyTo: env.NOTIFY_EMAIL,
       subject: email.subject,
@@ -241,7 +220,7 @@ async function handleOffer(request, env, ctx) {
     })(),
   );
  
-  return json({ ok: true, loggedToCrm: crm.ok });
+  return json({ ok: true });
 }
  
 export default {

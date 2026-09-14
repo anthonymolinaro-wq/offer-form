@@ -7,24 +7,37 @@
 <title>Offer Submission Form</title>
 <style>
   @font-face{
-    font-family:'Proxima Nova OBRE';
-    src:url('/fonts/ProximaNovaOBRE-Regular.woff2') format('woff2');
+    font-family:'Saans';
+    src:url('/fonts/Saans-Regular.woff2') format('woff2');
     font-weight:400; font-style:normal; font-display:swap;
   }
   @font-face{
-    font-family:'Proxima Nova OBRE';
-    src:url('/fonts/ProximaNovaOBRE-Semibold.woff2') format('woff2');
+    font-family:'Saans';
+    src:url('/fonts/Saans-SemiBold.woff2') format('woff2');
+    font-weight:600; font-style:normal; font-display:swap;
+  }
+  @font-face{
+    font-family:'Saans Mono';
+    src:url('/fonts/SaansMono-Regular.woff2') format('woff2');
+    font-weight:400; font-style:normal; font-display:swap;
+  }
+  @font-face{
+    font-family:'Saans Mono';
+    src:url('/fonts/SaansMono-SemiBold.woff2') format('woff2');
     font-weight:600; font-style:normal; font-display:swap;
   }
   :root{
     color-scheme:light;        /* stops native dropdowns/date pickers rendering with
                                    invisible text when the browser is in dark mode */
-    --accent:#00aa56;          /* O'Brien green -- buttons, focus, checkmarks */
-    --ink:#0c1a29;             /* O'Brien navy -- headings, body text, topbar */
+    --forest:#032d23; --linen:#f1eee9; --moss:#8c9362; --sky:#90b3d8;
+    --accent:var(--forest);    /* OBrien forest -- buttons, focus, checkmarks (kept dark
+                                   for contrast; moss/sky are decorative-only, see below) */
+    --ink:var(--forest);       /* OBrien forest -- headings, body text, topbar */
     --muted:#6b7280; --line:#e5e7eb;
-    --bg:#f4f5f7; --card:#fff; --ok:var(--accent); --err:#b91c1c;
+    --bg:var(--linen); --card:#fff; --ok:var(--accent); --err:#b91c1c;
     --radius:12px;
-    --font:'Proxima Nova OBRE',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    --font:'Saans',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    --font-mono:'Saans Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -40,13 +53,13 @@
 
   h1{font-size:26px;line-height:1.25;margin:0;letter-spacing:-.01em;font-weight:600}
 
-  .letterhead{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--accent);
+  .letterhead{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--moss);
               border-radius:var(--radius);padding:26px 28px;margin-bottom:16px}
   .letterhead .property-line{display:flex;flex-wrap:wrap;column-gap:10px;align-items:baseline;
                              margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
-  .letterhead .property-line .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
-                                    color:var(--muted);font-weight:600}
-  .letterhead .property-line .addr{font-size:16px;font-weight:600}
+  .letterhead .property-line .label{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;
+                                    letter-spacing:.08em;color:var(--muted);font-weight:600}
+  .letterhead .property-line .addr{font-family:var(--font-mono);font-size:16px;font-weight:600}
 
   .notice{background:color-mix(in srgb,var(--accent) 6%,#fff);
           border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
@@ -55,8 +68,8 @@
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
         padding:22px;margin-bottom:16px}
-  .card > h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
-             margin:0 0 16px;font-weight:600}
+  .card > h2{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+             color:var(--muted);margin:0 0 16px;font-weight:600}
   .card > .subhead{font-size:13.5px;color:var(--muted);margin:-10px 0 16px;line-height:1.5}
 
   .field{margin-bottom:14px}
@@ -105,7 +118,7 @@
 <body>
 <div class="topbar">
   <div class="topbar-inner">
-    <img src="/obre-logo.png" alt="O'Brien Real Estate">
+    <img src="/obrien-logo-web.png" alt="OBrien Real Estate">
   </div>
 </div>
 <div class="wrap">
