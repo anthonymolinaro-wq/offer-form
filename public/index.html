@@ -286,6 +286,49 @@ const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 let listing = null;
 
+/* ---------- property-address URLs ----------
+ * offers.anthonymolinaro.com.au/12-sample-street-blackburn -- no Agentbox
+ * lookup involved, the address is parsed straight out of the slug. Anthony
+ * builds these links by hand, so the rule needs to be simple and predictable:
+ *   - split on "-", title-case each word, numbers stay as-is
+ *   - the first recognised street-type word (st/street/rd/road/ave/...) ends
+ *     the street line -- everything after it is the suburb (which can be
+ *     more than one word, e.g. "box-hill-south")
+ *   - no recognised street-type word -> just space-join everything, no comma
+ */
+const STREET_TYPES = new Set([
+  'st', 'street', 'rd', 'road', 'ave', 'av', 'avenue', 'ct', 'court', 'dr', 'drive',
+  'pl', 'place', 'cres', 'crescent', 'way', 'cl', 'close', 'blvd', 'boulevard',
+  'tce', 'terrace', 'ln', 'lane', 'pde', 'parade', 'gr', 'grove', 'cct', 'circuit',
+  'sq', 'square', 'hwy', 'highway', 'esp', 'esplanade', 'walk', 'grn', 'green',
+  'mews', 'rise', 'row',
+]);
+
+function titleCaseWord(word) {
+  if (/^\d+$/.test(word)) return word;
+  const m = word.match(/^(\d+)([a-z]+)$/i);
+  if (m) return m[1] + m[2].toUpperCase();
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+function addressFromSlug(slug) {
+  const tokens = slug.split('-').filter(Boolean);
+  if (!tokens.length) return '';
+  const isNum = (t) => /^\d+[a-zA-Z]?$/.test(t);
+  let splitIndex = tokens.findIndex((t) => STREET_TYPES.has(t.toLowerCase()));
+  let cased = tokens.map(titleCaseWord);
+
+  // "4-8-example-road" -> unit 4, street no. 8: two consecutive numbers right
+  // at the start are a unit/street-number pair (4/8), not two separate words.
+  if (tokens.length > 2 && isNum(tokens[0]) && isNum(tokens[1])) {
+    cased = [`${cased[0]}/${cased[1]}`, ...cased.slice(2)];
+    if (splitIndex > 1) splitIndex -= 1;
+  }
+
+  if (splitIndex === -1 || splitIndex === cased.length - 1) return cased.join(' ');
+  return `${cased.slice(0, splitIndex + 1).join(' ')}, ${cased.slice(splitIndex + 1).join(' ')}`;
+}
+
 /* ---------- currency helpers ---------- */
 const digits = (s) => String(s).replace(/[^0-9]/g, '');
 const fmt = (n) => n ? '$' + Number(n).toLocaleString('en-AU') : '';
@@ -387,27 +430,34 @@ function showProperty(l) {
 
 async function init() {
   const id = params.get('id');
+  const slug = location.pathname.replace(/^\/+|\/+$/g, '');
+
+  // A property-address URL (/12-sample-street-blackburn) needs no round trip --
+  // the address comes straight out of the path.
+  if (!id && slug) {
+    const address = addressFromSlug(slug);
+    if (address) return showProperty({ id: '', address });
+  }
+
   try {
     const res = await fetch(`/api/listing${id ? `?id=${encodeURIComponent(id)}` : ''}`);
     const data = await res.json();
 
     if (data.listing) return showProperty(data.listing);
 
-    // No property in the link -- let them pick from what's on the market.
-    const sel = $('listingPicker');
-    sel.innerHTML = '<option value="">Select a property…</option>';
-    (data.listings || []).forEach((l) => {
-      const opt = new Option(l.address, l.id);
-      sel.add(opt);
-    });
+    // No property in the link, and no live listings feed to fall back to --
+    // this shouldn't come up in normal use (every link should carry a slug
+    // or ?id=), so treat it as a broken/incomplete link rather than offer a
+    // picker with nothing in it.
     $('pickerCard').hidden = false;
-    sel.addEventListener('change', () => {
-      const chosen = (data.listings || []).find((l) => l.id === sel.value);
-      if (chosen) showProperty(chosen);
-    });
+    $('pickerCard').innerHTML =
+      '<h2>Link incomplete</h2><p style="color:#6b7280;margin:0">' +
+      "This link is missing a property address — please check the link the agent sent you, " +
+      'or call the agent directly.</p>';
   } catch {
     $('pickerCard').hidden = false;
-    $('listingPicker').innerHTML = '<option>Could not load properties — please call the agent</option>';
+    $('pickerCard').innerHTML =
+      '<h2>Could not load this page</h2><p style="color:#6b7280;margin:0">Please call the agent directly.</p>';
   }
 }
 init();
