@@ -1,0 +1,29 @@
+name = "offer-form"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Serves everything in public/ as static files, with the Worker handling /api/*
+assets = { directory = "public", binding = "ASSETS" }
+
+# Non-secret config. Secrets (API keys) live in .dev.vars locally and in
+# Cloudflare's encrypted store in production -- never in this file.
+[vars]
+NOTIFY_EMAIL   = "anthony.molinaro@obrienrealestate.com.au"
+FROM_EMAIL     = "offers@anthonymolinaro.com.au"
+FROM_NAME      = "Anthony Molinaro | O'Brien Real Estate"
+AGENT_NAME     = "Anthony Molinaro"
+AGENT_TITLE    = "Licensed Estate Agent/Auctioneer"
+AGENT_PHONE    = "0411 061 796"
+PUBLIC_ORIGIN  = "https://offers.anthonymolinaro.com.au"
+
+# Optional safety net: a 90-day copy of every raw submission, in case an email
+# bounces or an Agentbox write fails. Costs nothing, invisible, not a spreadsheet.
+# Create with:  wrangler kv namespace create OFFERS
+# then paste the id below and uncomment.
+# [[kv_namespaces]]
+# binding = "OFFERS"
+# id = "PASTE_ID_HERE"
+
+[[routes]]
+pattern = "offers.anthonymolinaro.com.au"
+custom_domain = true

@@ -1,0 +1,9 @@
+# Copy this file to `.dev.vars` and fill in the values.
+# `.dev.vars` is gitignored and never leaves this machine.
+
+# From the Agentbox Integrator Application -- https://www.agentbox.com.au/integrator-application
+AGENTBOX_CLIENT_ID=
+AGENTBOX_API_KEY=
+
+# From https://resend.com -- API Keys -> Create, "Sending access" only
+RESEND_API_KEY=

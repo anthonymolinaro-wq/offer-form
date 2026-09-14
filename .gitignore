@@ -1,0 +1,13 @@
+.dev.vars
+.wrangler/
+node_modules/
+
+# Contains a live API key -- never let this into git history, even in a
+# private repo (history is permanent even if the file is later removed).
+HANDOVER.md
+
+# Generated preview files -- regenerate with the scripts in scripts/, not source.
+offer-form-preview.html
+email-preview.html
+view-preview.html
+handover-artifact.html

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Copy Offer Details</title>
+<style>
+  :root{
+    color-scheme:light;
+    --accent:#00aa56; --ink:#0c1a29; --muted:#6b7280; --line:#e5e7eb;
+    --bg:#f4f5f7; --card:#fff;
+  }
+  @font-face{
+    font-family:'Proxima Nova OBRE';
+    src:url('/fonts/ProximaNovaOBRE-Regular.woff2') format('woff2');
+    font-weight:400; font-style:normal; font-display:swap;
+  }
+  @font-face{
+    font-family:'Proxima Nova OBRE';
+    src:url('/fonts/ProximaNovaOBRE-Semibold.woff2') format('woff2');
+    font-weight:600; font-style:normal; font-display:swap;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:'Proxima Nova OBRE',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+       font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  strong{font-weight:600}
+
+  .topbar{background:var(--ink);padding:16px}
+  .topbar-inner{max-width:640px;margin:0 auto}
+  .topbar img{height:24px;width:auto;display:block}
+
+  .wrap{max-width:640px;margin:0 auto;padding:26px 16px 60px}
+  h1{font-size:20px;margin:0 0 4px;font-weight:600}
+  .addr{color:var(--muted);font-size:14px;margin-bottom:22px}
+
+  .aa-page{margin-bottom:20px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .aa-page-title{background:var(--ink);color:#fff;padding:10px 16px;font-size:12.5px;font-weight:600}
+  .field-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f1f1f1;background:var(--card)}
+  .field-row:last-child{border-bottom:none}
+  .field-text{flex:1;min-width:0}
+  .field-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+  .field-value{font-size:15.5px;font-weight:600;margin-top:2px;overflow-wrap:break-word}
+  .copy-btn{flex:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+            font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;
+            transition:background .12s,border-color .12s}
+  .copy-btn:hover{border-color:var(--accent)}
+  .copy-btn.copied{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .empty{color:var(--muted);font-size:14px;padding:20px 0}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <img src="/obre-logo.png" alt="O'Brien Real Estate">
+  </div>
+</div>
+<div class="wrap">
+  <h1>Copy into Anywhere Auctions</h1>
+  <div class="addr" id="propAddr"></div>
+  <div id="pages"></div>
+</div>
+
+<script type="module">
+import { buildAAPages, decodeOfferFromHash } from '/aa-fields.js';
+
+const esc = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const data = decodeOfferFromHash(location.hash);
+const pagesEl = document.getElementById('pages');
+
+if (!data) {
+  pagesEl.innerHTML = '<div class="empty">This link is invalid or has expired. Use the details in the notification email instead.</div>';
+} else {
+  const { offer, listing } = data;
+  document.getElementById('propAddr').textContent = listing?.address || '';
+
+  const pages = buildAAPages(offer);
+  if (!pages.length) {
+    pagesEl.innerHTML = '<div class="empty">No details to show.</div>';
+  }
+
+  pages.forEach((page) => {
+    const pageEl = document.createElement('div');
+    pageEl.className = 'aa-page';
+    pageEl.innerHTML = `<div class="aa-page-title">Anywhere Auctions — ${esc(page.title)}</div>`;
+
+    page.fields.forEach((f) => {
+      const row = document.createElement('div');
+      row.className = 'field-row';
+      row.innerHTML = `
+        <div class="field-text">
+          <div class="field-label">${esc(f.label)}</div>
+          <div class="field-value">${esc(f.value)}</div>
+        </div>
+        <button type="button" class="copy-btn">Copy</button>`;
+
+      const btn = row.querySelector('.copy-btn');
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(f.value);
+        } catch {
+          // Clipboard API blocked (e.g. very old browser) -- fall back to manual select.
+          const range = document.createRange();
+          range.selectNodeContents(row.querySelector('.field-value'));
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1200);
+      });
+
+      pageEl.appendChild(row);
+    });
+
+    pagesEl.appendChild(pageEl);
+  });
+}
+</script>
+</body>
+</html>
