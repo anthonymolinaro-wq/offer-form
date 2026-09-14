@@ -209,28 +209,37 @@ async function handleOffer(request, env, ctx) {
     return json({ errors: ['Could not submit your offer. Please call the agent directly.'], detail: err.message }, 502);
   }
  
-  ctx.waitUntil(
-    sendEmail(env, {
+  // Buyer confirmation, then one email per ticked "please send me
+  // recommendations" box (two boxes ticked -> two separate emails, not one
+  // combined one) -- sent one after another, not all at once. Firing them
+  // simultaneously right after the agent notification above risks tripping
+  // Resend's per-second rate limit, and a rate-limited send here fails
+  // silently (nothing left to report the failure to), so a follow-up email
+  // can just vanish with no trace. Spacing them out avoids that.
+  const followUpEmails = [
+    {
       to: offer.purchasers[0].email,
       replyTo: env.NOTIFY_EMAIL,
       subject: `Offer received — ${listing.address}`,
       html: buyerConfirmationHtml(offer, listing, env),
-    }).catch(() => {}),
+    },
+    ...recommendationEmails(offer, env).map((email) => ({
+      to: offer.purchasers[0].email,
+      replyTo: env.NOTIFY_EMAIL,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    })),
+  ];
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  ctx.waitUntil(
+    (async () => {
+      for (const email of followUpEmails) {
+        await sendEmail(env, email).catch(() => {});
+        await sleep(700);
+      }
+    })(),
   );
- 
-  // One email per ticked "please send me recommendations" box -- ticking two
-  // boxes sends two separate emails, not one combined one.
-  for (const email of recommendationEmails(offer, env)) {
-    ctx.waitUntil(
-      sendEmail(env, {
-        to: offer.purchasers[0].email,
-        replyTo: env.NOTIFY_EMAIL,
-        subject: email.subject,
-        html: email.html,
-        text: email.text,
-      }).catch(() => {}),
-    );
-  }
  
   return json({ ok: true, loggedToCrm: crm.ok });
 }
