@@ -1,27 +1,27 @@
 import { agentbox } from './agentbox.js';
 import { subjectLine, offerHtml, offerText, buyerConfirmationHtml, recommendationEmails, sendEmail } from './email.js';
 import { encodeOfferForView } from '../public/aa-fields.js';
-
+ 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
-
+ 
 /* ------------------------------------------------------------------ *
  * Validation
  * ------------------------------------------------------------------ */
-
+ 
 const str = (v) => String(v ?? '').trim();
 const money = (v) => {
   const n = Number(String(v ?? '').replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str(v));
-
+ 
 function validate(raw) {
   const errors = [];
-
+ 
   const purchasers = (Array.isArray(raw.purchasers) ? raw.purchasers : [])
     .map((p) => ({
       firstName: str(p.firstName),
@@ -32,7 +32,7 @@ function validate(raw) {
       address: str(p.address),
     }))
     .filter((p) => p.firstName || p.lastName || p.email);
-
+ 
   if (!purchasers.length) errors.push('At least one purchaser is required.');
   purchasers.forEach((p, i) => {
     const n = purchasers.length > 1 ? ` ${i + 1}` : '';
@@ -40,28 +40,28 @@ function validate(raw) {
     if (!isEmail(p.email)) errors.push(`Purchaser${n}: a valid email is required.`);
     if (!p.mobile) errors.push(`Purchaser${n}: mobile is required.`);
   });
-
+ 
   const offerPrice = money(raw.offerPrice);
   if (!offerPrice) errors.push('Offer price is required.');
-
+ 
   const depositAmount = money(raw.depositAmount);
   if (!depositAmount) errors.push('Deposit amount is required.');
-
+ 
   const settlementDays = /^\d+$/.test(str(raw.settlementDays)) ? Number(raw.settlementDays) : null;
   const settlementDate = str(raw.settlementDate);
   if (!settlementDays && !settlementDate) errors.push('A settlement period or date is required.');
-
+ 
   const unconditional = Boolean(raw.unconditional);
   const subjectToFinance = !unconditional && Boolean(raw.subjectToFinance);
   const subjectToOther = !unconditional && Boolean(raw.subjectToOther);
-
+ 
   if (subjectToFinance && !money(raw.financeAmount)) {
     errors.push('Finance amount is required when the offer is subject to finance.');
   }
   if (subjectToOther && !str(raw.otherDetails)) {
     errors.push('Details are required for the "Other" condition.');
   }
-
+ 
   const offer = {
     listingId: str(raw.listingId),
     purchasers,
@@ -91,18 +91,18 @@ function validate(raw) {
     specialConditions: str(raw.specialConditions),
     submittedAt: new Date().toISOString(),
   };
-
+ 
   return { ok: errors.length === 0, errors, offer };
 }
-
+ 
 /* ------------------------------------------------------------------ *
  * Agentbox write -- best effort, never blocks the notification
  * ------------------------------------------------------------------ */
-
+ 
 function enquiryComment(offer, listing) {
   return offerText(offer, listing);
 }
-
+ 
 async function logToAgentbox(env, offer, listing) {
   if (!agentbox.configured(env)) {
     return { ok: false, error: 'Agentbox credentials not configured yet.' };
@@ -125,14 +125,14 @@ async function logToAgentbox(env, offer, listing) {
     return { ok: false, error: err.message || String(err) };
   }
 }
-
+ 
 /* ------------------------------------------------------------------ *
  * Routes
  * ------------------------------------------------------------------ */
-
+ 
 async function handleListing(env, url) {
   const id = url.searchParams.get('id');
-
+ 
   if (!agentbox.configured(env)) {
     // Lets the form be built and reviewed before API credentials arrive.
     return json({
@@ -151,7 +151,7 @@ async function handleListing(env, url) {
         : null,
     });
   }
-
+ 
   try {
     if (id) return json({ listing: await agentbox.getListing(env, id) });
     return json({ listings: await agentbox.listAvailable(env) });
@@ -159,7 +159,7 @@ async function handleListing(env, url) {
     return json({ error: err.message }, 502);
   }
 }
-
+ 
 async function handleOffer(request, env, ctx) {
   let raw;
   try {
@@ -167,10 +167,10 @@ async function handleOffer(request, env, ctx) {
   } catch {
     return json({ errors: ['Malformed submission.'] }, 400);
   }
-
+ 
   const { ok, errors, offer } = validate(raw);
   if (!ok) return json({ errors }, 422);
-
+ 
   // Resolve the property. A failure here must not stop the offer getting through.
   let listing = { id: offer.listingId, address: str(raw.listingAddress) };
   if (agentbox.configured(env) && offer.listingId) {
@@ -180,9 +180,9 @@ async function handleOffer(request, env, ctx) {
       /* keep the address the form posted */
     }
   }
-
+ 
   const crm = await logToAgentbox(env, offer, listing);
-
+ 
   // Raw copy first, so nothing is lost even if both emails fail.
   if (env.OFFERS) {
     ctx.waitUntil(
@@ -191,12 +191,12 @@ async function handleOffer(request, env, ctx) {
       }).catch(() => {}),
     );
   }
-
+ 
   // The view link carries the offer inside the URL fragment (after #), which
   // browsers never send to a server -- so this needs no database, and none
   // of it ever touches Cloudflare's or anyone else's request logs.
   const viewUrl = `${env.PUBLIC_ORIGIN}/view.html#o=${encodeOfferForView(offer, listing)}`;
-
+ 
   try {
     await sendEmail(env, {
       to: env.NOTIFY_EMAIL,
@@ -208,7 +208,7 @@ async function handleOffer(request, env, ctx) {
   } catch (err) {
     return json({ errors: ['Could not submit your offer. Please call the agent directly.'], detail: err.message }, 502);
   }
-
+ 
   ctx.waitUntil(
     sendEmail(env, {
       to: offer.purchasers[0].email,
@@ -217,7 +217,7 @@ async function handleOffer(request, env, ctx) {
       html: buyerConfirmationHtml(offer, listing, env),
     }).catch(() => {}),
   );
-
+ 
   // One email per ticked "please send me recommendations" box -- ticking two
   // boxes sends two separate emails, not one combined one.
   for (const email of recommendationEmails(offer, env)) {
@@ -231,20 +231,31 @@ async function handleOffer(request, env, ctx) {
       }).catch(() => {}),
     );
   }
-
+ 
   return json({ ok: true, loggedToCrm: crm.ok });
 }
-
+ 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
+ 
     if (url.pathname === '/api/listing') return handleListing(env, url);
     if (url.pathname === '/api/offer') {
       if (request.method !== 'POST') return json({ errors: ['Method not allowed.'] }, 405);
       return handleOffer(request, env, ctx);
     }
-
-    return env.ASSETS.fetch(request);
+ 
+    const assetResponse = await env.ASSETS.fetch(request);
+    if (assetResponse.status !== 404) return assetResponse;
+ 
+    // SPA fallback: a path like /12-sample-street-blackburn is a
+    // property-address route, not a missing static file -- it has no file
+    // extension, so serve the app shell and let the client parse the address
+    // out of the URL. A genuinely missing asset (has an extension) still 404s.
+    const lastSegment = url.pathname.split('/').pop() || '';
+    if (!lastSegment.includes('.')) {
+      return env.ASSETS.fetch(new Request(new URL('/index.html', url), request));
+    }
+    return assetResponse;
   },
 };
