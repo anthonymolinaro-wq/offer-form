@@ -197,10 +197,15 @@ export function offerHtml(o, listing, meta = {}) {
       `Opens a page with a Copy button next to every field, in the same order as Anywhere Auctions.</p>`);
   }
 
-  buildAAPages(o).forEach((page) => {
-    const rows = page.fields.map((f) => `<b>${esc(f.label)}:</b> ${esc(f.value)}`).join('<br>');
-    lines.push(`<p><u><b>Anywhere Auctions — ${esc(page.title)}</b></u><br>${rows}</p>`);
-  });
+  // The Additional Notes page (buyer's free-text notes) is deliberately left
+  // out of this "Anywhere Auctions" loop -- it isn't an AA field, and it gets
+  // its own clearly-labelled section below instead, so it's never shown twice.
+  buildAAPages(o)
+    .filter((page) => page.title !== 'Additional Notes')
+    .forEach((page) => {
+      const rows = page.fields.map((f) => `<b>${esc(f.label)}:</b> ${esc(f.value)}`).join('<br>');
+      lines.push(`<p><u><b>Anywhere Auctions — ${esc(page.title)}</b></u><br>${rows}</p>`);
+    });
 
   if (summary.length) {
     const rows = summary
@@ -269,16 +274,20 @@ export function offerText(o, listing, meta = {}) {
     '',
   );
 
-  const labelWidth = buildAAPages(o).reduce(
-    (max, page) => page.fields.reduce((m, f) => Math.max(m, f.label.length), max),
-    0,
-  );
+  const labelWidth = buildAAPages(o)
+    .filter((page) => page.title !== 'Additional Notes')
+    .reduce(
+      (max, page) => page.fields.reduce((m, f) => Math.max(m, f.label.length), max),
+      0,
+    );
 
-  buildAAPages(o).forEach((page) => {
-    lines.push(`=== ANYWHERE AUCTIONS — ${page.title.toUpperCase()} ===`);
-    page.fields.forEach((f) => lines.push(`${(f.label + ':').padEnd(labelWidth + 2)}${f.value}`));
-    lines.push('');
-  });
+  buildAAPages(o)
+    .filter((page) => page.title !== 'Additional Notes')
+    .forEach((page) => {
+      lines.push(`=== ANYWHERE AUCTIONS — ${page.title.toUpperCase()} ===`);
+      page.fields.forEach((f) => lines.push(`${(f.label + ':').padEnd(labelWidth + 2)}${f.value}`));
+      lines.push('');
+    });
 
   if (o.specialConditions?.trim()) {
     lines.push('ADDITIONAL NOTES (not part of the Anywhere Auctions form)', `  ${o.specialConditions}`, '');

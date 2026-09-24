@@ -77,10 +77,22 @@ export function buildAAPages(o) {
     );
   }
 
+  // The buyer's free-text notes aren't an Anywhere Auctions field at all --
+  // they're a separate "anything else?" box on the form -- so they're kept
+  // on their own page here rather than folded into the AA pages above. Still
+  // worth a Copy button though: a buyer who writes "Other: see notes below"
+  // means Anthony to actually read this, and previously the only place it
+  // showed up was buried in the notification email.
+  const page4Fields = [];
+  if (o.specialConditions?.trim()) {
+    page4Fields.push({ label: 'Notes from buyer (not part of the AA form)', value: o.specialConditions });
+  }
+
   return [
     { title: 'New Offer', fields: page1Fields },
     { title: 'Confirm Contract Details', fields: page2Fields },
     { title: 'Conveyancer Details', fields: page3Fields },
+    { title: 'Additional Notes', fields: page4Fields },
   ]
     .map((page) => ({ ...page, fields: page.fields.filter((f) => f.value && String(f.value).trim()) }))
     .filter((page) => page.fields.length > 0);
